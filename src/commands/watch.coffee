@@ -195,8 +195,32 @@ initialize = (options, configParams, onCompile, callback) ->
       callbacks.forEach (callback) ->
         callback generatedFiles
     fileList   = new fs_utils.FileList config
+
     if config.persistent and config.server.run
-      server   = helpers.startServer config
+      serverRunning = false
+      startServer = ->
+        serverRunning = false
+        server = helpers.startServer(config, (-> serverRunning = true))
+
+      # boot the server
+      startServer()
+
+      # check to see if we should watch any files/directories to auto-reload the server
+      if config.server.watch
+        bootingServerWatcher = true
+        serverWatcher = chokidar.watch config.server.watch,
+          ignored: fs_utils.ignored
+          persistent: config.persistent
+
+        onChange = (path) ->
+          if not bootingServerWatcher and serverRunning
+            server.close()
+            startServer()
+
+        serverWatcher.on "add", onChange
+        serverWatcher.on "change", onChange
+        serverWatcher.on "unlink", onChange
+        setTimeout (-> bootingServerWatcher = false), 1000 # give it some time to spin up
 
     # Emit `change` event for each file that is included with plugins.
     getPluginIncludes(plugins).forEach (path) ->

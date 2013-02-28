@@ -1,6 +1,6 @@
 'use strict'
 
-{exec} = require 'child_process'
+{spawn, exec} = require 'child_process'
 coffeescript = require 'coffee-script'
 express = require 'express'
 Handlebars = require 'handlebars'
@@ -165,8 +165,15 @@ exports.startServer = (config, callback = (->)) ->
     callback()
   if config.server.path
     try
-      server = require sysPath.resolve config.server.path
-      server.startServer port, publicPath, onListening
+      boot = "var coffeescript = require('coffee-script'); " +
+             "require('#{sysPath.resolve(config.server.path)}').startServer(#{port}, '#{publicPath}', function() {})"
+      p = spawn("node", ["-e", boot])
+      p.stdout.on "data", (data) -> process.stdout.write data.toString()
+      p.stderr.on "data", (data) -> process.stderr.write data.toString()
+      p.on "exit", (code) -> console.log("Warning: exited with code", code) if code and code isnt 0
+
+      onListening()
+      return { close: -> p.kill "SIGHUP" }
     catch error
       logger.error "couldn\'t load server #{config.server.path}: #{error}"
   else

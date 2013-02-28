@@ -195,6 +195,7 @@ initialize = (options, configParams, onCompile, callback) ->
       callbacks.forEach (callback) ->
         callback generatedFiles
     fileList   = new fs_utils.FileList config
+    server     = null
 
     if config.persistent and config.server.run
       serverRunning = false
